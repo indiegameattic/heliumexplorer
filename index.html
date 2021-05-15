@@ -1,0 +1,270 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Helium ($HNT) Explorer v2.01</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+          crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+            integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+            crossorigin=""></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"
+            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+            crossorigin="anonymous"></script>
+    <style>
+        #mapid {
+            width: 100%;
+            height: 100%;
+        }
+
+        .row {
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-9">
+                <div id="mapid"></div>
+            </div>
+            <div class="col-sm-3">
+                <div id="hotspot">
+                    <div id="hotspotname"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        var mymap = L.map('mapid').setView([39.059616853599636, -77.12076270320928], 13);
+        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+            maxZoom: 18,
+            id: 'mapbox/dark-v10',
+            tileSize: 512,
+            zoomOffset: -1,
+            accessToken: 'pk.eyJ1IjoibG9yYTQxMWV4cGxvcmVyIiwiYSI6ImNrb25tZWR2bTAyZWoyd3FudjUycDVyY3EifQ._9fphSe1Y9VBFPNFODbjEg'
+        }).addTo(mymap);
+
+        var markers = [];
+        var witnesses = [];
+
+        getHotspots();
+
+        function ClearAllMarkers() {
+            for (i = 0; i < markers.length; i++) {
+                markers[i].remove();
+            }
+        }
+
+        function ClearAllWitnessLines() {
+            for (i = 0; i < witnesses.length; i++) {
+                witnesses[i].remove();
+            }
+        }
+
+        function getHotspotWitnesses(hs) {
+            var request = new XMLHttpRequest();
+            var url = 'https://api.helium.io/v1/hotspots/' + hs.address + '/witnesses';
+            request.open('GET', url, true);
+            console.log(hs);
+            request.onload = function () {
+                if (this.status >= 200 && this.status < 400) {
+                    var json = JSON.parse(this.response);
+
+                    console.log(json);
+                    ClearAllWitnessLines();
+
+                    for (i = 0; i < json.data.length; i++) {
+                        var wt = json.data[i];
+                        var lineRenderer = L.canvas({ padding: 0.5 });
+                        var latlngs = [
+                            [hs.lat, hs.lng],
+                            [wt.lat, wt.lng]
+                        ];
+                        var line = L.polyline(latlngs, { renderer: lineRenderer });
+                        witnesses.push(line);
+
+                        line.addTo(mymap);
+                    }
+
+                }
+            };
+            request.send();
+        }
+
+        function getHotspot(e) {
+            console.log('^^^^^^^^^^^^^^^^^^^^^^^');
+            console.log(e);
+            //console.log(hs.name);
+            var popup = L.popup();
+            popup.setLatLng([e.latlng.lat, e.latlng.lng]);
+            popup.setContent(e.target.hotspot.name + '<br />Elev: ' + e.target.hotspot.elevation +
+                '<br />Gain: ' + e.target.hotspot.gain);
+                //+ '<br />Elev: <span id="usgs"></div>');
+            popup.openOn(mymap);
+
+            $('#hotspotname').html('<h3>' + e.target.hotspot.name + '</h3>');
+
+            getHotspotWitnesses(e.target.hotspot);
+
+            //getElevation(e.latlng.lat, e.latlng.lng, 'setElevation');
+
+        }
+
+        function addHotspot(json) {
+            for (i = 0; i < json.data.length; i++) {
+                var hs = json.data[i];
+                var isOnline = (hs.status.online === 'online') ? true : false;
+                var marker = L.circleMarker([hs.lat, hs.lng],
+                    {
+                        "radius": 5 * ((zoom * 0.1) / 2),
+                        "weight": isOnline ? 3 * ((zoom * 0.1) / 2) : 2,
+                        "color": isOnline ? '#3366ff' : '#990000',
+                        "fill": true,
+                        "fillOpacity": isOnline ? 0.8 : 1,
+                        "fillColor": isOnline ? '#ffff99' : '#990000'
+                    });
+                marker.hotspot = hs;
+
+                marker.addTo(mymap).addEventListener('click', function (e) {
+                    getHotspot(e);
+                });
+                markers.push(marker);
+            }
+        }
+
+        function getHotspots(e) {
+            // Get Map Bound Coordinates
+            var bounds = mymap.getBounds();
+            //console.log(bounds);
+
+            var zoom = (e != undefined) ? e.target._zoom : mymap.getZoom();
+            var url = 'https://api.helium.io/v1/hotspots/location/box?nelat=' + bounds._northEast.lat +
+                '&nelon=' + bounds._northEast.lng +
+                '&swlat=' + bounds._southWest.lat +
+                '&swlon=' + bounds._southWest.lng;
+
+            console.log(url);
+
+            
+            var request = new XMLHttpRequest();
+            
+            request.open('GET', url, true);
+            request.onload = function () {
+                if (this.status >= 200 && this.status < 400) {
+                    var json = JSON.parse(this.response);
+
+                    //console.log(json);
+
+                    for (i = 0; i < json.data.length; i++) {
+                        var hs = json.data[i];
+                        var isOnline = (hs.status.online === 'online') ? true : false;
+                        var marker = L.circleMarker([hs.lat, hs.lng],
+                            {
+                                "radius": 5 * ((zoom * 0.1) / 2),
+                                "weight": isOnline ? 3 * ((zoom * 0.1) / 2) : 2,
+                                "color": isOnline ? '#3366ff' : '#990000',
+                                "fill": true,
+                                "fillOpacity": isOnline ? 0.8 : 1,
+                                "fillColor": isOnline ? '#ffff99' : '#990000'
+                            });
+                        //console.log(hs.name);
+                        //marker.on('click', function (e) { 
+                        //    getHotspot(e);
+                        //});
+                        marker.hotspot = hs;
+
+                        marker.addTo(mymap).addEventListener('click', function (e) {
+                            getHotspot(e);
+                        });
+                        markers.push(marker);
+                    }
+
+                }
+            };
+            request.send();
+            
+        }
+
+        mymap.on('zoomstart', ClearAllMarkers);
+        mymap.on('zoomend', getHotspots);
+
+        mymap.on('movestart', ClearAllMarkers);
+        mymap.on('moveend', getHotspots);
+
+        /*
+        mapboxgl.accessToken = 'pk.eyJ1IjoibG9yYTQxMWV4cGxvcmVyIiwiYSI6ImNrb25tZWR2bTAyZWoyd3FudjUycDVyY3EifQ._9fphSe1Y9VBFPNFODbjEg';
+        var map = new mapboxgl.Map({
+            container: 'map',
+            center: [-77.12076270320928, 39.059616853599636],
+            zoom: 13,
+            style: 'mapbox://styles/mapbox/streets-v11'
+        });
+        var markers = [];
+        map.on('zoomstart', function () {
+            for (i = 0; i < markers.length; i++) {
+                markers[i].remove();
+            }
+        });
+        map.on('zoomend', function () {
+
+            var bounds = map.getBounds();
+            console.log(bounds);
+
+            var request = new XMLHttpRequest();
+            var url = 'https://api.helium.io/v1/hotspots/location/box?nelat=' + bounds._ne.lat +
+                '&nelon=' + bounds._ne.lng +
+                '&swlat=' + bounds._sw.lat +
+                '&swlon=' + bounds._sw.lng;
+            request.open('GET', url, true);
+            request.onload = function () {
+                if (this.status >= 200 && this.status < 400) {
+                    var json = JSON.parse(this.response);
+
+                    console.log(json);
+
+                    for (i = 0; i < json.data.length; i++) {
+                        var marker = new mapboxgl.Marker()
+                            .setLngLat([json.data[i].lng, json.data[i].lat])
+                            .addTo(map);
+
+                        markers.push(marker);
+                    }
+
+                }
+            };
+            request.send();
+
+            //var marker = new mapboxgl.Marker()
+            //    .setLngLat([bounds._ne.lng, bounds._ne.lat])
+            //    .addTo(map);
+
+
+        });
+        */
+        // https://api.helium.io/v1/hotspots/location/box?nelat=39.098&nelon=-77.063&swlat=39.0166&swlon=-77.168
+
+        // https://nationalmap.gov/epqs/pqs.php?x=-77.07382313611895&y=38.92528749116433&units=Feet&output=json
+
+        function getElevation(lat, lng, callback) {
+            $.ajax({
+                url: "https://nationalmap.gov/epqs/pqs.php?x=" + lat + "&y=" + lng + "&units=Feet&output=json",
+                dataType: "jsonp"
+            }).done(function (data) {
+                
+                //var json = JSON.parsedata(data);
+                console.log(data);
+               //$('span#usgs');
+            });
+        }
+    </script>
+</body>
+</html>
