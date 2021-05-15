@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -106,16 +106,17 @@
             //console.log(hs.name);
             var popup = L.popup();
             popup.setLatLng([e.latlng.lat, e.latlng.lng]);
-            popup.setContent(e.target.hotspot.name + '<br />Elev: ' + e.target.hotspot.elevation +
-                '<br />Gain: ' + e.target.hotspot.gain);
-                //+ '<br />Elev: <span id="usgs"></div>');
+            popup.setContent(e.target.hotspot.name +
+                //'<br />Elev: ' + e.target.hotspot.elevation +
+                '<br />Gain: ' + e.target.hotspot.gain +
+                '<br />Elev: <span id="usgs"></span> ft.');
             popup.openOn(mymap);
 
             $('#hotspotname').html('<h3>' + e.target.hotspot.name + '</h3>');
 
             getHotspotWitnesses(e.target.hotspot);
 
-            //getElevation(e.latlng.lat, e.latlng.lng, 'setElevation');
+            getElevation(e.latlng.lat, e.latlng.lng);
 
         }
 
@@ -254,16 +255,22 @@
 
         // https://nationalmap.gov/epqs/pqs.php?x=-77.07382313611895&y=38.92528749116433&units=Feet&output=json
 
-        function getElevation(lat, lng, callback) {
-            $.ajax({
-                url: "https://nationalmap.gov/epqs/pqs.php?x=" + lat + "&y=" + lng + "&units=Feet&output=json",
-                dataType: "jsonp"
-            }).done(function (data) {
-                
-                //var json = JSON.parsedata(data);
-                console.log(data);
-               //$('span#usgs');
-            });
+        function getElevation(lat, lng) {
+            var request = new XMLHttpRequest();
+            var url = 'https://nationalmap.gov/epqs/pqs.php?x=' + lng +
+                '&y=' + lat +
+                '&units=Feet&output=json';
+            request.open('GET', url, true);
+            request.onload = function () {
+                if (this.status >= 200 && this.status < 400) {
+                    var json = JSON.parse(this.response);
+                    console.log('$$$$$$$$$$$$$$$$$$$$$$$');
+                    console.log(json);
+
+                    $('span#usgs').html(json.USGS_Elevation_Point_Query_Service.Elevation_Query.Elevation);
+                }
+            };
+            request.send();
         }
     </script>
 </body>
