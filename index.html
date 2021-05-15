@@ -26,6 +26,7 @@
         .row {
             min-height: 100vh;
         }
+
     </style>
 </head>
 <body>
@@ -37,12 +38,17 @@
             <div class="col-sm-3">
                 <div id="hotspot">
                     <div id="hotspotname"></div>
+                    <div id="location"></div>
+                    
+                    <div id="witness"></div>
                 </div>
             </div>
         </div>
     </div>
     
     <script>
+        
+
         var mymap = L.map('mapid').setView([39.059616853599636, -77.12076270320928], 13);
         L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
             attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
@@ -82,19 +88,36 @@
                     console.log(json);
                     ClearAllWitnessLines();
 
+                    var isOnline = (hs.status.online === 'online') ? true : false;
+
+                    $('div#witness').html('<h4>' +
+                        json.data.length +
+                        ' Witnesses</h4><ol>');
+
                     for (i = 0; i < json.data.length; i++) {
                         var wt = json.data[i];
+                        var isOnline = (hs.status.online === 'online') ? true : false;
                         var lineRenderer = L.canvas({ padding: 0.5 });
                         var latlngs = [
                             [hs.lat, hs.lng],
                             [wt.lat, wt.lng]
                         ];
-                        var line = L.polyline(latlngs, { renderer: lineRenderer });
+                        var line = L.polyline(latlngs, {
+                            renderer: lineRenderer,
+                            weight: 2,
+                            color: isOnline ? '#3366ff' : '#990000',
+                            opacity: 0.75
+                        });
                         witnesses.push(line);
 
                         line.addTo(mymap);
-                    }
 
+                        $('div#witness').append('<li id="witness_' +
+                            wt.address + '">' +
+                            '<span class="text-capitalize">' + wt.name.replace(/-/gi, ' ') + '</span>'+
+                            '</li>');
+                    }
+                    $('div#witness').append('</ol>');
                 }
             };
             request.send();
@@ -106,13 +129,17 @@
             //console.log(hs.name);
             var popup = L.popup();
             popup.setLatLng([e.latlng.lat, e.latlng.lng]);
-            popup.setContent(e.target.hotspot.name +
+            popup.setContent('<span class="text-capitalize">' + e.target.hotspot.name.replace(/-/gi, ' ') + '</span>' +
                 //'<br />Elev: ' + e.target.hotspot.elevation +
                 '<br />Gain: ' + e.target.hotspot.gain +
                 '<br />Elev: <span id="usgs"></span> ft.');
             popup.openOn(mymap);
 
-            $('#hotspotname').html('<h3>' + e.target.hotspot.name + '</h3>');
+            $('div#hotspotname').html('<h3 class="text-capitalize">' + e.target.hotspot.name.replace(/-/gi, ' ') + '</h3>');
+            $('div#location').html(e.target.hotspot.geocode.long_street + ', ' +
+                e.target.hotspot.geocode.long_city + ', ' +
+                e.target.hotspot.geocode.long_state);
+            
 
             getHotspotWitnesses(e.target.hotspot);
 
