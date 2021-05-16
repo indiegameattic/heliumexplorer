@@ -5,8 +5,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Helium ($HNT) Explorer v2.01</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous" />
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"
+            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+            crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" 
+          integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" 
+          crossorigin="anonymous" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" 
+            integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" 
+            crossorigin="anonymous"></script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
           integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
@@ -14,9 +21,7 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
             integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
             crossorigin=""></script>
-    <script src="https://code.jquery.com/jquery-1.12.4.min.js"
-            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
-            crossorigin="anonymous"></script>
+
     <style>
         #mapid {
             width: 100%;
@@ -26,7 +31,9 @@
         .row {
             min-height: 100vh;
         }
-
+        #location {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -39,15 +46,34 @@
                 <div id="hotspot">
                     <div id="hotspotname"></div>
                     <div id="location"></div>
-                    
-                    <div id="witness"></div>
+                    <ul class="nav nav-tabs">
+                        <li class="nav-item">
+                            <a href="#witnesstab" class="nav-link active" data-toggle="tab">Witnesses</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#challengertab" class="nav-link" data-toggle="tab">Challengers</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="witnesstab">
+                            <div id="witness"></div>
+                        </div>
+                        <div class="tab-pane fade" id="challengertab">
+                            <div id="challenger">zzzz</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
     <script>
-        
+        $(document).ready(function () {
+            $(".nav-tabs a").click(function (e) {
+                e.preventDefault();
+                $(this).tab('show');
+            });
+        });
 
         var mymap = L.map('mapid').setView([39.059616853599636, -77.12076270320928], 13);
         L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
@@ -76,23 +102,42 @@
             }
         }
 
+        function getHotspatChallenges(hs) {
+            var request = new XMLHttpRequest();
+            var url = 'https://api.helium.io/v1/hotspots/' + hs.address + '/challenges';
+            request.open('GET', url, true);
+
+            request.onload = function () {
+                if (this.status >= 200 && this.status < 400) {
+                    var json = JSON.parse(this.response);
+                    console.log('@@@@@@@@@@@@@@');
+                    console.log(json);
+
+                }
+            };
+            request.send();
+        }
+
         function getHotspotWitnesses(hs) {
             var request = new XMLHttpRequest();
             var url = 'https://api.helium.io/v1/hotspots/' + hs.address + '/witnesses';
+
+            $('div#witness').html('<div class="spinner-border text-primary"></div>');
             request.open('GET', url, true);
-            console.log(hs);
+
             request.onload = function () {
                 if (this.status >= 200 && this.status < 400) {
                     var json = JSON.parse(this.response);
 
-                    console.log(json);
+                    //console.log(json);
                     ClearAllWitnessLines();
 
                     var isOnline = (hs.status.online === 'online') ? true : false;
 
-                    $('div#witness').html('<h4>' +
+                    $('div#witness').html('<h5>' +
                         json.data.length +
-                        ' Witnesses</h4><ol>');
+                        ' Witnesses</h5><ol>');
+                    $('span#witnesscount').html(json.data.length);
 
                     for (i = 0; i < json.data.length; i++) {
                         var wt = json.data[i];
@@ -108,23 +153,27 @@
                             color: isOnline ? '#3366ff' : '#990000',
                             opacity: 0.75
                         });
+                        line.distancekm = getDistance(hs.lat, hs.lng, wt.lat, wt.lng, 'K');
                         witnesses.push(line);
 
                         line.addTo(mymap);
 
                         $('div#witness').append('<li id="witness_' +
                             wt.address + '">' +
-                            '<span class="text-capitalize">' + wt.name.replace(/-/gi, ' ') + '</span>'+
+                            '<span class="text-capitalize">' + wt.name.replace(/-/gi, ' ') + '</span> ' +
+                            '(' + line.distancekm.toFixed(2) + ' km)' + 
                             '</li>');
                     }
                     $('div#witness').append('</ol>');
+
+                    console.log(witnesses);
                 }
             };
             request.send();
         }
 
         function getHotspot(e) {
-            console.log('^^^^^^^^^^^^^^^^^^^^^^^');
+            //console.log('^^^^^^^^^^^^^^^^^^^^^^^');
             console.log(e);
             //console.log(hs.name);
             var popup = L.popup();
@@ -139,9 +188,10 @@
             $('div#location').html(e.target.hotspot.geocode.long_street + ', ' +
                 e.target.hotspot.geocode.long_city + ', ' +
                 e.target.hotspot.geocode.long_state);
-            
+            $('div#address').html(e.target.hotspot.address);
 
             getHotspotWitnesses(e.target.hotspot);
+            getHotspatChallenges(e.target.hotspot);
 
             getElevation(e.latlng.lat, e.latlng.lng);
 
@@ -180,7 +230,7 @@
                 '&swlat=' + bounds._southWest.lat +
                 '&swlon=' + bounds._southWest.lng;
 
-            console.log(url);
+            //console.log(url);
 
             
             var request = new XMLHttpRequest();
@@ -228,56 +278,6 @@
         mymap.on('movestart', ClearAllMarkers);
         mymap.on('moveend', getHotspots);
 
-        /*
-        mapboxgl.accessToken = 'pk.eyJ1IjoibG9yYTQxMWV4cGxvcmVyIiwiYSI6ImNrb25tZWR2bTAyZWoyd3FudjUycDVyY3EifQ._9fphSe1Y9VBFPNFODbjEg';
-        var map = new mapboxgl.Map({
-            container: 'map',
-            center: [-77.12076270320928, 39.059616853599636],
-            zoom: 13,
-            style: 'mapbox://styles/mapbox/streets-v11'
-        });
-        var markers = [];
-        map.on('zoomstart', function () {
-            for (i = 0; i < markers.length; i++) {
-                markers[i].remove();
-            }
-        });
-        map.on('zoomend', function () {
-
-            var bounds = map.getBounds();
-            console.log(bounds);
-
-            var request = new XMLHttpRequest();
-            var url = 'https://api.helium.io/v1/hotspots/location/box?nelat=' + bounds._ne.lat +
-                '&nelon=' + bounds._ne.lng +
-                '&swlat=' + bounds._sw.lat +
-                '&swlon=' + bounds._sw.lng;
-            request.open('GET', url, true);
-            request.onload = function () {
-                if (this.status >= 200 && this.status < 400) {
-                    var json = JSON.parse(this.response);
-
-                    console.log(json);
-
-                    for (i = 0; i < json.data.length; i++) {
-                        var marker = new mapboxgl.Marker()
-                            .setLngLat([json.data[i].lng, json.data[i].lat])
-                            .addTo(map);
-
-                        markers.push(marker);
-                    }
-
-                }
-            };
-            request.send();
-
-            //var marker = new mapboxgl.Marker()
-            //    .setLngLat([bounds._ne.lng, bounds._ne.lat])
-            //    .addTo(map);
-
-
-        });
-        */
         // https://api.helium.io/v1/hotspots/location/box?nelat=39.098&nelon=-77.063&swlat=39.0166&swlon=-77.168
 
         // https://nationalmap.gov/epqs/pqs.php?x=-77.07382313611895&y=38.92528749116433&units=Feet&output=json
@@ -291,13 +291,36 @@
             request.onload = function () {
                 if (this.status >= 200 && this.status < 400) {
                     var json = JSON.parse(this.response);
-                    console.log('$$$$$$$$$$$$$$$$$$$$$$$');
-                    console.log(json);
+                    //console.log('$$$$$$$$$$$$$$$$$$$$$$$');
+                    //console.log(json);
 
                     $('span#usgs').html(json.USGS_Elevation_Point_Query_Service.Elevation_Query.Elevation);
                 }
             };
             request.send();
+        }
+
+        // https://www.geodatasource.com/developers/javascript
+        function getDistance(lat1, lon1, lat2, lon2, unit) {
+            if ((lat1 == lat2) && (lon1 == lon2)) {
+                return 0;
+            }
+            else {
+                var radlat1 = Math.PI * lat1 / 180;
+                var radlat2 = Math.PI * lat2 / 180;
+                var theta = lon1 - lon2;
+                var radtheta = Math.PI * theta / 180;
+                var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
+                if (dist > 1) {
+                    dist = 1;
+                }
+                dist = Math.acos(dist);
+                dist = dist * 180 / Math.PI;
+                dist = dist * 60 * 1.1515;
+                if (unit == "K") { dist = dist * 1.609344 }
+                if (unit == "N") { dist = dist * 0.8684 }
+                return dist;
+            }
         }
     </script>
 </body>
